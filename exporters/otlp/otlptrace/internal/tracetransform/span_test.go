@@ -489,6 +489,29 @@ func BenchmarkSpans(b *testing.B) {
 	}
 }
 
+func BenchmarkSpansPooled(b *testing.B) {
+	for _, spansCount := range []int{1, 32, 128, 512} {
+		b.Run(fmt.Sprintf("%d spans", spansCount), func(b *testing.B) {
+			var records []tracesdk.ReadOnlySpan
+
+			for range spansCount {
+				records = append(records, generateSpan())
+			}
+
+			b.ResetTimer()
+			b.ReportAllocs()
+			b.RunParallel(func(pb *testing.PB) {
+				var out []*tracepb.ResourceSpans
+				for pb.Next() {
+					out = SpansPooled(records)
+					ResetPools(out)
+				}
+				_ = out
+			})
+		})
+	}
+}
+
 func generateSpan() tracesdk.ReadOnlySpan {
 	return tracetest.SpanStub{
 		Attributes: []attribute.KeyValue{
